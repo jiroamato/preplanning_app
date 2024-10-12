@@ -181,7 +181,7 @@ class PDFAutofiller:
         pdf1_path = os.path.join(self.base_path, "Forms", "Protector Plus TruStage Application form.pdf")
         pdf2_path = os.path.join(self.base_path, "Forms", "Personal Information Sheet Auto Fill.pdf")
         pdf3_path = os.path.join(self.base_path, "Forms", "Instructions Concerning My Arrangements.pdf")
-        pdf4_path = os.path.join(self.base_path, "Forms", "Pre-Arranged Funeral Service Agreement - New.pdf")
+        pdf4_path = os.path.join(self.base_path, "Forms", "Pre-Arranged Funeral Service Agreement - Full Funeral Service - New.pdf")
         
         if not all(os.path.exists(pdf) for pdf in [pdf1_path, pdf2_path, pdf3_path, pdf4_path]):
             logging.error(f"One or more PDF files not found. Base path: {self.base_path}")
@@ -200,7 +200,7 @@ class PDFAutofiller:
         output_filename1 = f"{values['-FIRST-']}_{values['-LAST-']} - Protector Plus TruStage Application form.pdf"
         output_filename2 = f"{values['-FIRST-']}_{values['-LAST-']} - Personal Information Sheet.pdf"
         output_filename3 = f"{values['-FIRST-']}_{values['-LAST-']} - Instructions Concerning My Arrangements.pdf"
-        output_filename4 = f"{values['-FIRST-']}_{values['-LAST-']} - Pre-Arranged Funeral Service Agreement.pdf"
+        output_filename4 = f"{values['-FIRST-']}_{values['-LAST-']} - Pre-Arranged Funeral Service Agreement - Full Funeral Service.pdf"
         
         output_pdf1 = output_dir / output_filename1
         output_pdf2 = output_dir / output_filename2
