@@ -20,6 +20,9 @@ ESTABLISHMENT_POSTAL_CODE = "V3L 3A3"
 
 # Representative Constants
 REPRESENTATIVE_NAME = "Angelina Amato"
+REPRESENTATIVE_ID = "502966002"
+REPRESENTATIVE_PHONE = "778-869-2512"
+REPRESENTATIVE_EMAIL = "a.amato@kearneyfs.com"
 
 class PDFAutofiller:
     def __init__(self):
@@ -218,7 +221,7 @@ class PDFAutofiller:
                 'Establishment Name': ESTABLISHMENT_NAME,
                 'Phone': ESTABLISHMENT_PHONE,
                 'Email': ESTABLISHMENT_EMAIL,
-                '1 Applicant': ESTABLISHMENT_ADDRESS,
+                'Address': ESTABLISHMENT_ADDRESS,
                 'City': ESTABLISHMENT_CITY,
                 'Province': ESTABLISHMENT_PROVINCE,
                 'Postal Code': ESTABLISHMENT_POSTAL_CODE,
@@ -236,12 +239,16 @@ class PDFAutofiller:
                 'Province_2': data.get('-PROVINCE-', ''),
                 'Postal Code_2': data.get('-POSTAL-', ''),
                 'Occupation': data.get('-OCCUPATION-', ''),
-                'Representative Name': REPRESENTATIVE_NAME,
                 # New beneficiary fields
                 'Name': data.get('Name', ''),
                 'Relationship': data.get('Relationship', ''),
                 'Phone_3': data.get('Phone_3', ''),
-                'Email_3': data.get('Email_3', '')
+                'Email_3': data.get('Email_3', ''),
+                # Representative constants
+                'Representative Name': REPRESENTATIVE_NAME,
+                'ID': REPRESENTATIVE_ID,
+                'Phone_5': REPRESENTATIVE_PHONE,
+                'Email_5': REPRESENTATIVE_EMAIL
             }
             
             # Handle beneficiary address
@@ -280,11 +287,17 @@ class PDFAutofiller:
 
             # Data dictionary for the fourth PDF
             data_dict4 = {
+                # Applicant Information
                 'Purchaser': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
                 'PURCHASERS NAME': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
                 'Phone Number': data.get('-PHONE-', ''),
                 'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
-                'FUNERAL HOME REPRESENTATIVE NAME': REPRESENTATIVE_NAME
+                'FUNERAL HOME REPRESENTATIVE NAME': REPRESENTATIVE_NAME,
+                'BENEFICIARY': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
+                'DATE OF BIRTH': data.get('-BIRTHDATE-', ''),
+                'ADDRESS CITY PROVINCE POSTAL CODE': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
+                'TELEPHONE NUMBER': data.get('-PHONE-', '')
+                # Service Info
             }
 
             # Fill the first PDF
