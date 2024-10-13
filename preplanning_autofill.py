@@ -4,10 +4,10 @@ import PySimpleGUI as sg
 from fillpdf import fillpdfs
 from pathlib import Path
 import logging
-from datetime import datetime
-import re
+from datetime import datetime, date
 from dateutil import parser
 from dateutil.relativedelta import relativedelta
+import re
 
 # Establishment Constants
 ESTABLISHMENT_NAME = "Kearney Columbia-Bowell Chapel"
@@ -24,20 +24,42 @@ REPRESENTATIVE_ID = "502966002"
 REPRESENTATIVE_PHONE = "778-869-2512"
 REPRESENTATIVE_EMAIL = "a.amato@kearneyfs.com"
 
+
+class PDFTypes:
+    PRE_ARRANGED_FULL_SERVICE = "Pre-Arranged Funeral Service Agreement - Full Funeral Service.pdf"
+    TRUSTAGE_APPLICATION = "Protector Plus TruStage Application form.pdf"
+    PERSONAL_INFO_SHEET = "Personal Information Sheet Auto Fill.pdf"
+    INSTRUCTIONS = "Instructions Concerning My Arrangements.pdf"
+
+
 class PDFAutofiller:
     def __init__(self):
         self.setup_logging()
         self.base_path = self.get_base_path()
+
+        try:
+            import inflect
+            self.inflect_engine = inflect.engine()
+        except ImportError:
+            logging.error(
+                "The 'inflect' library is not installed. Please install it using 'pip install inflect'.")
+            sg.popup_error(
+                "The 'inflect' library is not installed. Please install it using 'pip install inflect'.")
+            return
+
         self.layout = [
-            [sg.Text("Preplanning PDF Autofiller", font=("Helvetica", 20, "bold"), justification='center', expand_x=True)],
+            [sg.Text("Preplanning PDF Autofiller", font=(
+                "Helvetica", 20, "bold"), justification='center', expand_x=True)],
             [sg.HorizontalSeparator()],
             [sg.VPush()],
-            [sg.Text("Applicant Information", font=("Helvetica", 16, "bold"), justification='center', expand_x=True)],
+            [sg.Text("Applicant Information", font=("Helvetica", 16,
+                     "bold"), justification='center', expand_x=True)],
             [sg.HorizontalSeparator()],
             [sg.Text("First Name:"), sg.Input(key="-FIRST-")],
             [sg.Text("Middle Name:"), sg.Input(key="-MIDDLE-")],
             [sg.Text("Last Name:"), sg.Input(key="-LAST-")],
-            [sg.Text("Birthdate (e.g., January 1, 1990):"), sg.Input(key="-BIRTHDATE-")],
+            [sg.Text("Birthdate (e.g., January 1, 1990):"),
+             sg.Input(key="-BIRTHDATE-")],
             [sg.Text("Gender:"), sg.Input(key="-GENDER-")],
             [sg.Text("SIN:"), sg.Input(key="SIN", enable_events=True)],
             [sg.Text("Phone:"), sg.Input(key="-PHONE-", enable_events=True)],
@@ -45,23 +67,29 @@ class PDFAutofiller:
             [sg.Text("Address:"), sg.Input(key="-ADDRESS-")],
             [sg.Text("City:"), sg.Input(key="-CITY-")],
             [sg.Text("Province:"), sg.Input(key="-PROVINCE-")],
-            [sg.Text("Postal Code:"), sg.Input(key="-POSTAL-", enable_events=True)],
+            [sg.Text("Postal Code:"), sg.Input(
+                key="-POSTAL-", enable_events=True)],
             [sg.Text("Occupation:"), sg.Input(key="-OCCUPATION-")],
             [sg.VPush()],
-            [sg.Text("Beneficiary Information", font=("Helvetica", 16, "bold"), justification='center', expand_x=True)],
+            [sg.Text("Beneficiary Information", font=("Helvetica", 16,
+                     "bold"), justification='center', expand_x=True)],
             [sg.HorizontalSeparator()],
             [sg.Text("Full Name:"), sg.Input(key="Name")],
-            [sg.Text("Relationship to the Applicant:"), sg.Input(key="Relationship")],
+            [sg.Text("Relationship to the Applicant:"),
+             sg.Input(key="Relationship")],
             [sg.Text("Phone:"), sg.Input(key="Phone_3", enable_events=True)],
             [sg.Text("Email:"), sg.Input(key="Email_3")],
-            [sg.Checkbox("Beneficiary address same as Applicant's", key="-SAME_ADDRESS-", enable_events=True)],
-            [sg.Text("Address:"), sg.Input(key="4 Payment Selection", disabled=True)],
-            [sg.Text("City:"), sg.Input(key="City_4", disabled=True)],
-            [sg.Text("Province:"), sg.Input(key="Province_4", disabled=True)],
-            [sg.Text("Postal Code:"), sg.Input(key="Postal Code_4", disabled=True, enable_events=True)],
+            [sg.Checkbox("Beneficiary address same as Applicant's",
+                         key="-SAME_ADDRESS-", enable_events=True, default=False)],
+            [sg.Text("Address:"), sg.Input(key="Address \\(if different\\)")],
+            [sg.Text("City:"), sg.Input(key="City_4")],
+            [sg.Text("Province:"), sg.Input(key="Province_4")],
+            [sg.Text("Postal Code:"), sg.Input(
+                key="Postal Code_4", enable_events=True)],
             [sg.Button("Autofill PDFs"), sg.Button("Exit")]
         ]
         self.window = sg.Window("Preplanning PDF Autofiller", self.layout)
+        self.pdf_paths = self.initialize_pdf_paths()
 
     def get_base_path(self):
         if getattr(sys, 'frozen', False):
@@ -76,7 +104,7 @@ class PDFAutofiller:
         os.makedirs(log_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         log_file = os.path.join(log_dir, f"pdf_autofill_log_{timestamp}.txt")
-        
+
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s',
@@ -86,6 +114,14 @@ class PDFAutofiller:
             ]
         )
         logging.info("Logging initialized")
+
+    def initialize_pdf_paths(self):
+        return {
+            1: os.path.join(self.base_path, "Forms", PDFTypes.TRUSTAGE_APPLICATION),
+            2: os.path.join(self.base_path, "Forms", PDFTypes.PERSONAL_INFO_SHEET),
+            3: os.path.join(self.base_path, "Forms", PDFTypes.INSTRUCTIONS),
+            4: os.path.join(self.base_path, "Forms", PDFTypes.PRE_ARRANGED_FULL_SERVICE),
+        }
 
     def run(self):
         while True:
@@ -102,25 +138,27 @@ class PDFAutofiller:
                 values[event] = self.format_postal_code(values[event])
                 self.window[event].update(values[event])
             if event == "-SAME_ADDRESS-":
-                self.toggle_beneficiary_address_fields(values["-SAME_ADDRESS-"])
-                if values["-SAME_ADDRESS-"]:
-                    self.window["Postal Code_4"].update(values["-POSTAL-"])
+                self.toggle_beneficiary_address_fields(
+                    values["-SAME_ADDRESS-"])
             if event == "Autofill PDFs":
                 if not self.validate_email(values["-EMAIL-"]):
                     sg.popup_error("Invalid email format for Applicant Email")
                     continue
                 if not self.validate_email(values["Email_3"]):
-                    sg.popup_error("Invalid email format for Beneficiary Email")
+                    sg.popup_error(
+                        "Invalid email format for Beneficiary Email")
                     continue
                 self.autofill_pdfs(values)
         self.window.close()
 
     def validate_inputs(self, values):
         if values["-EMAIL-"] and not self.validate_email(values["-EMAIL-"]):
-            sg.popup_error("Invalid email address. Please enter a valid email or leave it blank.")
+            sg.popup_error(
+                "Invalid email address. Please enter a valid email or leave it blank.")
             return False
         if values["-BIRTHDATE-"] and not self.validate_email(values["-BIRTHDATE-"]):
-            sg.popup_error("Invalid birthdate. Please use the format 'Month Day, Year' (e.g., January 1, 1990) or leave it blank.")
+            sg.popup_error(
+                "Invalid birthdate. Please use the format 'Month Day, Year' (e.g., January 1, 1990) or leave it blank.")
             return False
         return True
 
@@ -175,167 +213,151 @@ class PDFAutofiller:
         return age
 
     def toggle_beneficiary_address_fields(self, same_address):
-        for key in ["4 Payment Selection", "City_4", "Province_4", "Postal Code_4"]:
+        for key in ["Address \\(if different\\)", "City_4", "Province_4", "Postal Code_4"]:
             self.window[key].update(disabled=same_address)
-            if same_address:
-                self.window[key].update("")
 
     def autofill_pdfs(self, values):
-        pdf1_path = os.path.join(self.base_path, "Forms", "Protector Plus TruStage Application form.pdf")
-        pdf2_path = os.path.join(self.base_path, "Forms", "Personal Information Sheet Auto Fill.pdf")
-        pdf3_path = os.path.join(self.base_path, "Forms", "Instructions Concerning My Arrangements.pdf")
-        pdf4_path = os.path.join(self.base_path, "Forms", "Pre-Arranged Funeral Service Agreement - Full Funeral Service - New.pdf")
-        
-        if not all(os.path.exists(pdf) for pdf in [pdf1_path, pdf2_path, pdf3_path, pdf4_path]):
+        if not all(os.path.exists(pdf) for pdf in self.pdf_paths.values()):
             logging.error(f"One or more PDF files not found. Base path: {self.base_path}")
             sg.popup_error(f"One or more PDF files not found. Please check the Forms directory.\nLooking in: {self.base_path}")
             return
 
-        # Create 'Filled_Forms' folder in the same directory as the executable or script
+        # Create 'Filled_Forms' folder
         if getattr(sys, 'frozen', False):
-            # If running as executable
             output_dir = Path(sys.executable).parent / "Filled_Forms"
         else:
-            # If running as script
             output_dir = Path(os.getcwd()) / "Filled_Forms"
         output_dir.mkdir(exist_ok=True)
 
-        output_filename1 = f"{values['-FIRST-']}_{values['-LAST-']} - Protector Plus TruStage Application form.pdf"
-        output_filename2 = f"{values['-FIRST-']}_{values['-LAST-']} - Personal Information Sheet.pdf"
-        output_filename3 = f"{values['-FIRST-']}_{values['-LAST-']} - Instructions Concerning My Arrangements.pdf"
-        output_filename4 = f"{values['-FIRST-']}_{values['-LAST-']} - Pre-Arranged Funeral Service Agreement - Full Funeral Service.pdf"
-        
-        output_pdf1 = output_dir / output_filename1
-        output_pdf2 = output_dir / output_filename2
-        output_pdf3 = output_dir / output_filename3
-        output_pdf4 = output_dir / output_filename4
+        output_filenames = {
+            1: f"{values['-FIRST-']}_{values['-LAST-']} - Protector Plus TruStage Application form.pdf",
+            2: f"{values['-FIRST-']}_{values['-LAST-']} - Personal Information Sheet.pdf",
+            3: f"{values['-FIRST-']}_{values['-LAST-']} - Instructions Concerning My Arrangements.pdf",
+            4: f"{values['-FIRST-']}_{values['-LAST-']} - Pre-Arranged Funeral Service Agreement - Full Funeral Service.pdf"
+        }
+
+        output_pdfs = {
+            i: output_dir / filename for i, filename in output_filenames.items()
+        }
 
         try:
             age = self.calculate_age(values["-BIRTHDATE-"]) if values["-BIRTHDATE-"] else ""
-            
-            # Create a dictionary with only non-empty values
             data = {k: v for k, v in values.items() if v}
-            
-            # Data dictionary for the first PDF
-            data_dict1 = {
-                'Establishment Name': ESTABLISHMENT_NAME,
-                'Phone': ESTABLISHMENT_PHONE,
-                'Email': ESTABLISHMENT_EMAIL,
-                'Address': ESTABLISHMENT_ADDRESS,
-                'City': ESTABLISHMENT_CITY,
-                'Province': ESTABLISHMENT_PROVINCE,
-                'Postal Code': ESTABLISHMENT_POSTAL_CODE,
-                'First Name': data.get('-FIRST-', ''),
-                'MI': data.get('-MIDDLE-', '')[:1] if data.get('-MIDDLE-') else '',
-                'Last Name': data.get('-LAST-', ''),
-                'Birthdate ddmmyy': data.get('-BIRTHDATE-', ''),
-                'Age': str(age),
-                'Gender': data.get('-GENDER-', ''),
-                'SIN': data.get('SIN', ''),
-                'Phone_2': data.get('-PHONE-', ''),
-                'Email_2': data.get('-EMAIL-', ''),
-                'Mailing Address': data.get('-ADDRESS-', ''),
-                'City_2': data.get('-CITY-', ''),
-                'Province_2': data.get('-PROVINCE-', ''),
-                'Postal Code_2': data.get('-POSTAL-', ''),
-                'Occupation': data.get('-OCCUPATION-', ''),
-                # New beneficiary fields
-                'Name': data.get('Name', ''),
-                'Relationship': data.get('Relationship', ''),
-                'Phone_3': data.get('Phone_3', ''),
-                'Email_3': data.get('Email_3', ''),
-                # Representative constants
-                'Representative Name': REPRESENTATIVE_NAME,
-                'ID': REPRESENTATIVE_ID,
-                'Phone_5': REPRESENTATIVE_PHONE,
-                'Email_5': REPRESENTATIVE_EMAIL
-            }
-            
-            # Handle beneficiary address
-            if data.get('-SAME_ADDRESS-'):
-                data_dict1['4 Payment Selection'] = data.get('-ADDRESS-', '')
-                data_dict1['City_4'] = data.get('-CITY-', '')
-                data_dict1['Province_4'] = data.get('-PROVINCE-', '')
-                data_dict1['Postal Code_4'] = data.get('-POSTAL-', '')
-            else:
-                data_dict1['4 Payment Selection'] = data.get('4 Payment Selection', '')
-                data_dict1['City_4'] = data.get('City_4', '')
-                data_dict1['Province_4'] = data.get('Province_4', '')
-                data_dict1['Postal Code_4'] = data.get('Postal Code_4', '')
-        
+            today = date.today()
+            formatted_date = today.strftime("%B %d, %Y")
 
-            # Data dictionary for the second PDF
-            data_dict2 = {
-                'Last name': data.get('-LAST-', ''),
-                'First name': data.get('-FIRST-', ''),
-                'Middle name': data.get('-MIDDLE-', ''),    
-                'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}",
-                'Postal Code': data.get('-POSTAL-', ''),
-                'Phone': data.get('-PHONE-', ''),
-                'Date of Birth': data.get('-BIRTHDATE-', ''),
-                'Occupation': data.get('-OCCUPATION-', ''),
-                'SIN': data.get('SIN', '')
-            }
+            # Create data dictionaries
+            data_dicts = self.create_data_dictionaries(data, age, formatted_date, today)
 
-            # Data dictionary for the third PDF
-            data_dict3 = {
-                'Name': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
-                'Phone': data.get('-PHONE-', ''),
-                'Email': data.get('-EMAIL-', ''),
-                'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}"
-            }
+            # Fill PDFs
+            for i, (input_pdf, output_pdf) in enumerate(zip(self.pdf_paths.values(), output_pdfs.values()), 1):
+                data_dict = data_dicts[i]
+                fillpdfs.write_fillable_pdf(input_pdf, output_pdf, data_dict)
+                logging.info(f"Filled PDF {i} written to: {output_pdf}")
+                logging.info(f"Filled values for PDF {i}:")
+                for field, value in data_dict.items():
+                    logging.info(f"  {field}: {value}")
 
-            # Data dictionary for the fourth PDF
-            data_dict4 = {
-                # Applicant Information
-                'Purchaser': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
-                'PURCHASERS NAME': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
-                'Phone Number': data.get('-PHONE-', ''),
-                'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
-                'FUNERAL HOME REPRESENTATIVE NAME': REPRESENTATIVE_NAME,
-                'BENEFICIARY': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
-                'DATE OF BIRTH': data.get('-BIRTHDATE-', ''),
-                'ADDRESS CITY PROVINCE POSTAL CODE': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
-                'TELEPHONE NUMBER': data.get('-PHONE-', '')
-                # Service Info
-            }
-
-            # Fill the first PDF
-            fillpdfs.write_fillable_pdf(pdf1_path, output_pdf1, data_dict1)
-            logging.info(f"Filled first PDF written to: {output_pdf1}")
-
-            # Fill the second PDF
-            fillpdfs.write_fillable_pdf(pdf2_path, output_pdf2, data_dict2)
-            logging.info(f"Filled second PDF written to: {output_pdf2}")
-
-            # Fill the third PDF
-            fillpdfs.write_fillable_pdf(pdf3_path, output_pdf3, data_dict3)
-            logging.info(f"Filled third PDF written to: {output_pdf3}")
-
-            # Fill the fourth PDF
-            fillpdfs.write_fillable_pdf(pdf4_path, output_pdf4, data_dict4)
-            logging.info(f"Filled fourth PDF written to: {output_pdf4}")
-
-            logging.info("Filled values for first PDF:")
-            for field, value in data_dict1.items():
-                logging.info(f"  {field}: {value}")
-
-            logging.info("Filled values for second PDF:")
-            for field, value in data_dict2.items():
-                logging.info(f"  {field}: {value}")
-
-            logging.info("Filled values for third PDF:")
-            for field, value in data_dict3.items():
-                logging.info(f"  {field}: {value}")
-
-            logging.info("Filled values for fourth PDF:")
-            for field, value in data_dict4.items():
-                logging.info(f"  {field}: {value}")
-
-            sg.popup(f"PDFs have been filled successfully.\nSaved as:\n1. {output_filename1}\n2. {output_filename2}\n3. {output_filename3}\n4. {output_filename4}\nIn the Filled_Forms directory next to the application.")
+            sg.popup(f"""PDFs have been filled successfully.
+Saved as:
+{chr(10).join([f"{i}. {filename}" for i, filename in output_filenames.items()])}
+In the Filled_Forms directory next to the application.""")
         except Exception as e:
             logging.error(f"Error filling PDFs: {str(e)}")
             sg.popup_error(f"Error filling PDFs: {str(e)}")
+
+    def create_data_dictionaries(self, data, age, formatted_date, today):
+        # Data dictionary for the first PDF
+        data_dict1 = {
+            'Establishment Name': ESTABLISHMENT_NAME,
+            'Phone': ESTABLISHMENT_PHONE,
+            'Email': ESTABLISHMENT_EMAIL,
+            'Address': ESTABLISHMENT_ADDRESS,
+            'City': ESTABLISHMENT_CITY,
+            'Province': ESTABLISHMENT_PROVINCE,
+            'Postal Code': ESTABLISHMENT_POSTAL_CODE,
+            'First Name': data.get('-FIRST-', ''),
+            'MI': data.get('-MIDDLE-', '')[:1] if data.get('-MIDDLE-') else '',
+            'Last Name': data.get('-LAST-', ''),
+            'Birthdate ddmmyy': data.get('-BIRTHDATE-', ''),
+            'Age': str(age),
+            'Gender': data.get('-GENDER-', ''),
+            'SIN': data.get('SIN', ''),
+            'Phone_2': data.get('-PHONE-', ''),
+            'Email_2': data.get('-EMAIL-', ''),
+            'Mailing Address': data.get('-ADDRESS-', ''),
+            'City_2': data.get('-CITY-', ''),
+            'Province_2': data.get('-PROVINCE-', ''),
+            'Postal Code_2': data.get('-POSTAL-', ''),
+            'Occupation': data.get('-OCCUPATION-', ''),
+            'Name': data.get('Name', ''),
+            'Relationship': data.get('Relationship', ''),
+            'Phone_3': data.get('Phone_3', ''),
+            'Email_3': data.get('Email_3', ''),
+            'Representative Name': REPRESENTATIVE_NAME,
+            'ID': REPRESENTATIVE_ID,
+            'Phone_5': REPRESENTATIVE_PHONE,
+            'Email_5': REPRESENTATIVE_EMAIL,
+            'Date ddmmyy_3': formatted_date
+        }
+
+        # Handle beneficiary address
+        if data.get('-SAME_ADDRESS-'):
+            data_dict1['Address \\(if different\\)'] = data.get('-ADDRESS-', '')
+            data_dict1['City_4'] = data.get('-CITY-', '')
+            data_dict1['Province_4'] = data.get('-PROVINCE-', '')
+            data_dict1['Postal Code_4'] = data.get('-POSTAL-', '')
+        else:
+            data_dict1['Address \\(if different\\)'] = data.get('Address \\(if different\\)', '')
+            data_dict1['City_4'] = data.get('City_4', '')
+            data_dict1['Province_4'] = data.get('Province_4', '')
+            data_dict1['Postal Code_4'] = data.get('Postal Code_4', '')
+
+        # Data dictionary for the second PDF
+        data_dict2 = {
+            'Last name': data.get('-LAST-', ''),
+            'First name': data.get('-FIRST-', ''),
+            'Middle name': data.get('-MIDDLE-', ''),
+            'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}",
+            'Postal Code': data.get('-POSTAL-', ''),
+            'Phone': data.get('-PHONE-', ''),
+            'Date of Birth': data.get('-BIRTHDATE-', ''),
+            'Occupation': data.get('-OCCUPATION-', ''),
+            'SIN': data.get('SIN', '')
+        }
+
+        # Data dictionary for the third PDF
+        data_dict3 = {
+            'Date': formatted_date,
+            'Name': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
+            'Phone': data.get('-PHONE-', ''),
+            'Email': data.get('-EMAIL-', ''),
+            'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}"
+        }
+
+        # Format the date components for the fourth PDF
+        day_ordinal = self.inflect_engine.ordinal(today.day)
+        month = today.strftime("%B")
+        year = today.year
+
+        # Data dictionary for the fourth PDF
+        data_dict4 = {
+            'Purchaser': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
+            'PURCHASERS NAME': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
+            'Phone Number': data.get('-PHONE-', ''),
+            'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
+            'FUNERAL HOME REPRESENTATIVE NAME': REPRESENTATIVE_NAME,
+            'BENEFICIARY': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
+            'DATE OF BIRTH': data.get('-BIRTHDATE-', ''),
+            'ADDRESS CITY PROVINCE POSTAL CODE': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
+            'TELEPHONE NUMBER': data.get('-PHONE-', ''),
+            'Day': day_ordinal,
+            'Month': month,
+            'Year': str(year),
+        }
+
+        return {1: data_dict1, 2: data_dict2, 3: data_dict3, 4: data_dict4}
+
 
 if __name__ == "__main__":
     autofiller = PDFAutofiller()
