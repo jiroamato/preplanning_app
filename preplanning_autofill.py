@@ -268,7 +268,7 @@ class PDFAutofiller:
             data_dict2 = {
                 'Last name': data.get('-LAST-', ''),
                 'First name': data.get('-FIRST-', ''),
-                'Middle name': data.get('-MIDDLE-', ''),
+                'Middle name': data.get('-MIDDLE-', ''),    
                 'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}",
                 'Postal Code': data.get('-POSTAL-', ''),
                 'Phone': data.get('-PHONE-', ''),
