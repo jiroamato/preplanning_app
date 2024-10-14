@@ -8,6 +8,8 @@ from datetime import datetime, date
 from dateutil import parser
 from dateutil.relativedelta import relativedelta
 import re
+import tkinter as tk
+import locale
 
 # Establishment Constants
 ESTABLISHMENT_NAME = "Kearney Columbia-Bowell Chapel"
@@ -47,49 +49,149 @@ class PDFAutofiller:
                 "The 'inflect' library is not installed. Please install it using 'pip install inflect'.")
             return
 
-        self.layout = [
-            [sg.Text("Preplanning PDF Autofiller", font=(
-                "Helvetica", 20, "bold"), justification='center', expand_x=True)],
-            [sg.HorizontalSeparator()],
-            [sg.VPush()],
-            [sg.Text("Applicant Information", font=("Helvetica", 16,
+        applicant_layout = [
+            [sg.Text("Applicant Information", font=("Helvetica", 14, "bold"))],
+            [sg.Text("First Name:"), sg.Input(key="-FIRST-", size=(20, 1))],
+            [sg.Text("Middle Name:"), sg.Input(key="-MIDDLE-", size=(20, 1))],
+            [sg.Text("Last Name:"), sg.Input(key="-LAST-", size=(20, 1))],
+            [sg.Text("Birthdate:"), sg.Input(key="-BIRTHDATE-", size=(20, 1))],
+            [sg.Text("Gender:"), sg.Input(key="-GENDER-", size=(20, 1))],
+            [sg.Text("SIN:"), sg.Input(key="SIN", size=(20, 1), enable_events=True)],
+            [sg.Text("Phone:"), sg.Input(key="-PHONE-", size=(20, 1), enable_events=True)],
+            [sg.Text("Email:"), sg.Input(key="-EMAIL-", size=(20, 1))],
+            [sg.Text("Address:"), sg.Input(key="-ADDRESS-", size=(20, 1))],
+            [sg.Text("City:"), sg.Input(key="-CITY-", size=(20, 1))],
+            [sg.Text("Province:"), sg.Input(key="-PROVINCE-", size=(20, 1))],
+            [sg.Text("Postal Code:"), sg.Input(key="-POSTAL-", size=(20, 1), enable_events=True)],
+            [sg.Text("Occupation:"), sg.Input(key="-OCCUPATION-", size=(20, 1))]
+        ]
+
+        beneficiary_layout = [
+            [sg.Text("Beneficiary Information", font=("Helvetica", 14, "bold"))],
+            [sg.Text("Full Name:"), sg.Input(key="Name", size=(20, 1))],
+            [sg.Text("Relationship:"), sg.Input(key="Relationship", size=(20, 1))],
+            [sg.Text("Phone:"), sg.Input(key="Phone_3", size=(20, 1), enable_events=True)],
+            [sg.Text("Email:"), sg.Input(key="Email_3", size=(20, 1))],
+            [sg.Checkbox("Same address as Applicant", key="-SAME_ADDRESS-", enable_events=True)],
+            [sg.Text("Address:"), sg.Input(key="Address \\(if different\\)", size=(20, 1))],
+            [sg.Text("City:"), sg.Input(key="City_4", size=(20, 1))],
+            [sg.Text("Province:"), sg.Input(key="Province_4", size=(20, 1))],
+            [sg.Text("Postal Code:"), sg.Input(key="Postal Code_4", size=(20, 1), enable_events=True)]
+        ]
+
+        personal_info_layout = [
+            [sg.Column(applicant_layout), sg.VSeperator(), sg.Column(beneficiary_layout)]
+        ]
+
+        # Packages
+        package_layout = [
+            [sg.Text("Packages", font=("Helvetica", 16,
                      "bold"), justification='center', expand_x=True)],
             [sg.HorizontalSeparator()],
-            [sg.Text("First Name:"), sg.Input(key="-FIRST-")],
-            [sg.Text("Middle Name:"), sg.Input(key="-MIDDLE-")],
-            [sg.Text("Last Name:"), sg.Input(key="-LAST-")],
-            [sg.Text("Birthdate (e.g., January 1, 1990):"),
-             sg.Input(key="-BIRTHDATE-")],
-            [sg.Text("Gender:"), sg.Input(key="-GENDER-")],
-            [sg.Text("SIN:"), sg.Input(key="SIN", enable_events=True)],
-            [sg.Text("Phone:"), sg.Input(key="-PHONE-", enable_events=True)],
-            [sg.Text("Email:"), sg.Input(key="-EMAIL-")],
-            [sg.Text("Address:"), sg.Input(key="-ADDRESS-")],
-            [sg.Text("City:"), sg.Input(key="-CITY-")],
-            [sg.Text("Province:"), sg.Input(key="-PROVINCE-")],
-            [sg.Text("Postal Code:"), sg.Input(
-                key="-POSTAL-", enable_events=True)],
-            [sg.Text("Occupation:"), sg.Input(key="-OCCUPATION-")],
+            # A. Professional Services
+            [sg.Text("A. Professional Services", font=("Helvetica", 16, "bold")), sg.Text("(GST applicable)", font=("Helvetica", 10, "italic"))],
+            [sg.Text("    1. Securing Release of Deceased and Transfer:", size=(40, 1)), sg.Text("$"), sg.Input(key="A1", size=(10, 1), enable_events=True)],
+            [sg.Text("    2. Services of Licensed Funeral Directors and Staff:", size=(40, 1)), sg.Text("$"), sg.Input(key="A2A", size=(10, 1), enable_events=True)],
+            [sg.Text("        Pallbearers:", size=(20, 1)), sg.Input(key="Pallbearers", size=(20, 1)), sg.Text("$"), sg.Input(key="A2B", size=(10, 1), enable_events=True)],
+            [sg.Text("        Alternate Day Interment:", size=(40, 1)), sg.Input(key="Alternate Day Interment 1", size=(20, 1)), sg.Text("$"), sg.Input(key="A2C", size=(10, 1), enable_events=True)],
+            [sg.Text("        Alternate Day Interment 2:", size=(40, 1)), sg.Input(key="Alternate Day Interment 2", size=(20, 1)), sg.Text("$"), sg.Input(key="A2D", size=(10, 1), enable_events=True)],
+            [sg.Text("    3. Administration, Documentation & Registration:", size=(40,1)), sg.Text("$"), sg.Input(key="A3", size=(10,1), enable_events=True)],
+            [sg.Text("    4. Facilities and/or Equipment and Supplies:", size=(40,1)), sg.Text("$"), sg.Input(key="A4A", size=(10,1), enable_events=True    )],
+            [sg.Text("        Sheltering of Remains:", size=(40,1)), sg.Text("$"), sg.Input(key="A4B", size=(10,1), enable_events=True)],
+            [sg.Text("        A/V Equipment:", size=(40,1)), sg.Text("$"), sg.Input(key="A4C", size=(10,1), enable_events=True)],
+            [sg.Text("    5. Preparation Services")],
+            [sg.Text("        a) Basic Sanitary Care, Dressing and Casketing:", size=(40,1)), sg.Text("$"), sg.Input(key="A5A", size=(10,1), enable_events=True)],
+            [sg.Text("        b) Embalming:", size=(40,1)), sg.Text("$"), sg.Input(key="A5B", size=(10,1), enable_events=True)],
+            [sg.Text("        c) Pacemaker Removal:", size=(40,1)), sg.Input(key="Pacemaker Removal", size=(20,1)), sg.Text("$"), sg.Input(key="A5C", size=(10,1), enable_events=True)],
+            [sg.Text("        d) Autopsy Care:", size=(40,1)), sg.Input(key="Autopsy Care", size=(20,1)), sg.Text("$"), sg.Input(key="A5D", size=(10,1), enable_events=True )],
+            [sg.Text("    6. Evening Prayers or Visitation:", size=(40,1)), sg.Input(key="Evening Prayers or Visitation", size=(20,1)), sg.Text("$"), sg.Input(key="A6", size=(10,1), enable_events=True)],
+            [sg.Text("    7. Weekend or Statutory Holiday:", size=(40,1)), sg.Input(key="Weekend or Statutory Holiday", size=(20,1)), sg.Text("$"), sg.Input(key="A7", size=(10,1), enable_events=True)],
+            [sg.Text("    8. Reception Facilities:", size=(40,1)), sg.Input(key="Reception Facilities", size=(20,1)), sg.Text("$"), sg.Input(key="A8", size=(10,1), enable_events=True)],
+            [sg.Text("    9. Vehicles")],
+            [sg.Text("        Delivery of Cremated Remains:", size=(40,1)), sg.Input(key="Delivery of Cremated Remains", size=(20, 1)), sg.Text("$"), sg.Input(key="A9A", size=(10,1), enable_events=True)],
+            [sg.Text("        Transfer Vehicle for Transfer to Crematorium or Airport:", size=(40,1)), sg.Input(key="Transfer to Crematorium or Airport", size=(20, 1)), sg.Text("$"), sg.Input(key="A9B", size=(10,1), enable_events=True)],
+            [sg.Text("        Lead Vehicle:", size=(40,1)), sg.Input(key="Lead Vehicle", size=(20, 1)), sg.Text("$"), sg.Input(key="A9C", size=(10,1), enable_events=True)],
+            [sg.Text("        Service Vehicle:", size=(40,1)), sg.Input(key="Service Vehicle", size=(20, 1)), sg.Text("$"), sg.Input(key="A9D", size=(10,1), enable_events=True)],
+            [sg.Text("        Funeral Coach:", size=(40,1)), sg.Input(key="Funeral Coach", size=(20, 1)), sg.Text("$"), sg.Input(key="A9E", size=(10,1), enable_events=True)],
+            [sg.Text("        Limousine:", size=(40,1)), sg.Input(key="Limousine", size=(20, 1)), sg.Text("$"), sg.Input(key="A9F", size=(10,1), enable_events=True)],
+            [sg.Text("        Additional Limousines:", size=(40,1)), sg.Input(key="Additional Limousines", size=(20, 1)), sg.Text("$"), sg.Input(key="A9G", size=(10,1), enable_events=True)],
+            [sg.Text("        Flower Van:", size=(40,1)), sg.Input(key="Flower Van", size=(20, 1)), sg.Text("$"), sg.Input(key="A9H", size=(10,1), enable_events=True)],
+            [sg.Text("   TOTAL A:", font=("italic"), size=(40,1)), sg.Text("$"), sg.Input(key="Total A", size=(10,1), enable_events=True)],
             [sg.VPush()],
-            [sg.Text("Beneficiary Information", font=("Helvetica", 16,
-                     "bold"), justification='center', expand_x=True)],
+            # B. Merchandise
+            [sg.Text("B. Merchandise", font=("Helvetica", 16, "bold")), sg.Text("(GST and/or PST applicable)", font=("Helvetica", 10, "italic"))],
+            [sg.Text("    Casket:", size=(20,1)), sg.Input(key="Casket", size=(20,1)), sg.Text("$"), sg.Input(key="B1", size=(10,1), enable_events=True)],
+            [sg.Text("    Urn:", size=(20,1)), sg.Input(key="Urn", size=(20,1)), sg.Text("$"), sg.Input(key="B2", size=(10,1), enable_events=True)],
+            [sg.Text("    Keepsake:", size=(20,1)), sg.Input(key="Keepsake", size=(20,1)), sg.Text("$"), sg.Input(key="B3", size=(10,1), enable_events=True)],
+            [sg.Text("    Traditional Mourning Items:", size=(40,1)), sg.Input(key="Traditional Mourning Items", size=(20,1)), sg.Text("$"), sg.Input(key="B4", size=(10,1), enable_events=True)],
+            [sg.Text("    Memorial Stationary:", size=(40,1)), sg.Input(key="Memorial Stationary", size=(20,1)), sg.Text("$"), sg.Input(key="B5", size=(10,1), enable_events=True)],
+            [sg.Text("    Funeral Register:", size=(40,1)), sg.Input(key="Funeral Register 1", size=(20,1)), sg.Text("$"), sg.Input(key="B6", size=(10,1), enable_events=True)],
+            [sg.Text("    Funeral Register 2:", size=(40,1)), sg.Input(key="Funeral Register 2", size=(20,1)), sg.Text("$"), sg.Input(key="B7", size=(10,1), enable_events=True)],
+            [sg.Text("   TOTAL B:", font=("italic"), size=(40,1)), sg.Text("$"), sg.Input(key="Total B", size=(10,1), enable_events=True)],
+            [sg.VPush()],
+            # C. Cash Disbursements
+            [sg.Text("C. Cash Disbursements", font=("Helvetica", 16, "bold")), sg.Text("(GST and/or PST applicable)", font=("Helvetica", 10, "italic"))],
+            [sg.Text("    Cemetery:", size=(40,1)), sg.Input(key="Cemetery", size=(20,1)), sg.Text("$"), sg.Input(key="C1", size=(10,1), enable_events=True)],
+            [sg.Text("    Crematorium:", size=(40,1)), sg.Input(key="Crematorium", size=(20,1)), sg.Text("$"), sg.Input(key="C2", size=(10,1), enable_events=True)],
+            [sg.Text("    Obituary Notices:", size=(40,1)), sg.Input(key="Obituary Notices", size=(20,1)), sg.Text("$"), sg.Input(key="C3", size=(10,1), enable_events=True)],
+            [sg.Text("    Flowers:", size=(40,1)), sg.Input(key="Flowers", size=(20,1)), sg.Text("$"), sg.Input(key="C4", size=(10,1), enable_events=True)],
+            [sg.Text("    CPBC Administration Fee:", size=(40,1)), sg.Input(key="CPBC Administration Fee", size=(20,1)), sg.Text("$"), sg.Input(key="C5", size=(10,1), enable_events=True)],
+            [sg.Text("    Hostess:", size=(40,1)), sg.Input(key="Hostess", size=(20,1)), sg.Text("$"), sg.Input(key="C6", size=(10,1), enable_events=True)],
+            [sg.Text("    Markers:", size=(40,1)), sg.Input(key="Markers", size=(20,1)), sg.Text("$"), sg.Input(key="C7", size=(10,1), enable_events=True)],
+            [sg.Text("    Catering:", size=(40,1)), sg.Input(key="Catering 1", size=(20,1)), sg.Text("$"), sg.Input(key="C8", size=(10,1), enable_events=True)],
+            [sg.Text("    Catering 2:", size=(40,1)), sg.Input(key="Catering 2", size=(20,1)), sg.Text("$"), sg.Input(key="C9", size=(10,1), enable_events=True)],
+            [sg.Text("    Catering 3:", size=(40,1)), sg.Input(key="Catering 3", size=(20,1)), sg.Text("$"), sg.Input(key="C10", size=(10,1), enable_events=True)],
+            [sg.Text("   TOTAL C:", font=("italic"), size=(40,1)), sg.Text("$"), sg.Input(key="Total C", size=(10,1), enable_events=True)],
+            [sg.VPush()],
+            # D. Cash Disbursements
+            [sg.Text("D. Cash Disbursements", font=("Helvetica", 16, "bold")), sg.Text("(GST exempt)", font=("Helvetica", 10, "italic"))],
+            [sg.Text("    Clergy Honorarium:", size=(40,1)), sg.Input(key="Clergy Honorarium", size=(20,1)), sg.Text("$"), sg.Input(key="D1", size=(10,1), enable_events=True)],
+            [sg.Text("    Church Honorarium:", size=(40,1)), sg.Input(key="Church Honorarium", size=(20,1)), sg.Text("$"), sg.Input(key="D2", size=(10,1), enable_events=True)],
+            [sg.Text("    Altar Servers:", size=(40,1)), sg.Input(key="Altar Servers", size=(20,1)), sg.Text("$"), sg.Input(key="D3", size=(10,1), enable_events=True)],
+            [sg.Text("    Organist:", size=(40,1)), sg.Input(key="Organist", size=(20,1)), sg.Text("$"), sg.Input(key="D4", size=(10,1), enable_events=True)],
+            [sg.Text("    Soloist:", size=(40,1)), sg.Input(key="Soloist", size=(20,1)), sg.Text("$"), sg.Input(key="D5", size=(10,1), enable_events=True)],
+            [sg.Text("    Harpist:", size=(40,1)), sg.Input(key="Harpist", size=(20,1)), sg.Text("$"), sg.Input(key="D6", size=(10,1), enable_events=True)],
+            [sg.Text("    Death Certificates:", size=(40,1)), sg.Input(key="Death Certificates", size=(20,1)), sg.Text("$"), sg.Input(key="D7", size=(10,1), enable_events=True)],
+            [sg.Text("    Other:", size=(40,1)), sg.Input(key="Other", size=(20,1)), sg.Text("$"), sg.Input(key="D8", size=(10,1), enable_events=True)],
+            [sg.Text("   TOTAL D:", size=(40,1)), sg.Text("$"), sg.Input(key="Total D", size=(10,1), enable_events=True)],
+            [sg.VPush()],
+            # TOTAL CHARGES
+            [sg.Text("TOTAL CHARGES", font=("Helvetica", 16, "bold"))],
+            [sg.Text("    TOTAL A, B, & C SECTIONS:", size=(40,1)), sg.Text("$"), sg.Input(key="Total \\(ABC\\)", size=(10,1), enable_events=True)],
+            [sg.Text("    DISCOUNT:", size=(40,1)), sg.Text("$"), sg.Input(key="Discount", size=(10,1), enable_events=True)],
+            [sg.Text("    G.S.T.:", size=(40,1)), sg.Text("$"), sg.Input(key="GST", size=(10,1), enable_events=True)],
+            [sg.Text("    P.S.T.:", size=(40,1)), sg.Text("$"), sg.Input(key="PST", size=(10,1), enable_events=True)],
+            [sg.Text("    TOTAL D:", size=(40,1)), sg.Text("$"), sg.Input(key="Total D_2", size=(10,1), enable_events=True)],
+            [sg.Text("    GRAND TOTAL:", size=(40,1)), sg.Text("$"), sg.Input(key="Grand Total", size=(10,1), enable_events=True)]
+        ]
+
+        layout = [
+            [sg.Text("Preplanning PDF Autofiller", font=("Helvetica", 20, "bold"), justification='center', expand_x=True)],
             [sg.HorizontalSeparator()],
-            [sg.Text("Full Name:"), sg.Input(key="Name")],
-            [sg.Text("Relationship to the Applicant:"),
-             sg.Input(key="Relationship")],
-            [sg.Text("Phone:"), sg.Input(key="Phone_3", enable_events=True)],
-            [sg.Text("Email:"), sg.Input(key="Email_3")],
-            [sg.Checkbox("Beneficiary address same as Applicant's",
-                         key="-SAME_ADDRESS-", enable_events=True, default=False)],
-            [sg.Text("Address:"), sg.Input(key="Address \\(if different\\)")],
-            [sg.Text("City:"), sg.Input(key="City_4")],
-            [sg.Text("Province:"), sg.Input(key="Province_4")],
-            [sg.Text("Postal Code:"), sg.Input(
-                key="Postal Code_4", enable_events=True)],
+            [sg.Column(personal_info_layout)],
+            [sg.HorizontalSeparator()],
+            [sg.TabGroup([[
+                sg.Tab("Package Details", package_layout),
+            ]])],
             [sg.Button("Autofill PDFs"), sg.Button("Exit")]
         ]
-        self.window = sg.Window("Preplanning PDF Autofiller", self.layout)
+
+        self.window = sg.Window("Preplanning PDF Autofiller", layout, resizable=True, size=(1050, 800))
         self.pdf_paths = self.initialize_pdf_paths()
+
+        # Add this list of all package input keys
+        self.dollar_input_keys = [
+            "A1", "A2A", "A2B", "A2C", "A2D", "A3", "A4A", "A4B", "A4C",
+            "A5A", "A5B", "A5C", "A5D", "A6", "A7", "A8", "A9A", "A9B",
+            "A9C", "A9D", "A9E", "A9F", "A9G", "A9H", "Total A",
+            "B1", "B2", "B3", "B4", "B5", "B6", "B7", "Total B",
+            "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10", "Total C",
+            "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "Total D",
+            "Total \\(ABC\\)", "Discount", "GST", "PST", "Total D_2", "Grand Total"
+    ]
+
+        self.last_value = {key: '' for key in self.dollar_input_keys}
+        locale.setlocale(locale.LC_ALL, '')  # Set the locale to the user's default
 
     def get_base_path(self):
         if getattr(sys, 'frozen', False):
@@ -128,28 +230,55 @@ class PDFAutofiller:
             event, values = self.window.read()
             if event == sg.WINDOW_CLOSED or event == "Exit":
                 break
-            if event == "-PHONE-" or event == "Phone_3":
-                values[event] = self.format_phone(values[event])
-                self.window[event].update(values[event])
-            if event == "SIN":
-                values["SIN"] = self.format_sin(values["SIN"])
-                self.window["SIN"].update(values["SIN"])
-            if event == "-POSTAL-" or event == "Postal Code_4":
-                values[event] = self.format_postal_code(values[event])
-                self.window[event].update(values[event])
-            if event == "-SAME_ADDRESS-":
-                self.toggle_beneficiary_address_fields(
-                    values["-SAME_ADDRESS-"])
-            if event == "Autofill PDFs":
-                if not self.validate_email(values["-EMAIL-"]):
-                    sg.popup_error("Invalid email format for Applicant Email")
-                    continue
-                if not self.validate_email(values["Email_3"]):
-                    sg.popup_error(
-                        "Invalid email format for Beneficiary Email")
-                    continue
+            elif event in self.dollar_input_keys:
+                self.format_dollar_field(event, values[event])
+            elif event == "SIN":
+                self.window["SIN"].update(self.format_sin(values["SIN"]))
+            elif event in ["-PHONE-", "Phone_3"]:
+                self.window[event].update(self.format_phone_number(values[event]))
+            elif event in ["-POSTAL-", "Postal Code_4"]:
+                self.window[event].update(self.format_postal_code(values[event]))
+            elif event == "-SAME_ADDRESS-":
+                self.toggle_beneficiary_address_fields(values["-SAME_ADDRESS-"])
+            elif event == "Autofill PDFs":
                 self.autofill_pdfs(values)
+
         self.window.close()
+
+    def format_dollar_field(self, key, value):
+        if value != self.last_value[key]:  # Only format if the value has changed
+            if value and value.replace(',', '').replace('.', '', 1).isdigit():
+                try:
+                    # Remove existing commas and convert to float
+                    clean_value = float(value.replace(',', ''))
+                    
+                    # Format the value with comma separators and two decimal places
+                    formatted_value = locale.format_string('%.2f', clean_value, grouping=True)
+                    
+                    # Get the current cursor position
+                    cursor_position = self.window[key].Widget.index(tk.INSERT)
+                    
+                    # Count the number of digits and commas before the cursor
+                    original_parts = value[:cursor_position].split('.')
+                    original_integer_part = original_parts[0].replace(',', '')
+                    digits_and_commas = len(original_integer_part) + (len(original_integer_part) - 1) // 3
+                    
+                    # Update the input field with the formatted value
+                    self.window[key].update(formatted_value)
+                    
+                    # Calculate new cursor position
+                    new_position = min(digits_and_commas + (1 if '.' in value[:cursor_position] else 0), len(formatted_value))
+                    
+                    # Set the cursor position
+                    self.window[key].Widget.icursor(new_position)
+                    
+                    # Update the last value
+                    self.last_value[key] = formatted_value
+                except ValueError:
+                    pass
+            else:
+                # If the input is not a valid number, just update the last value
+                self.last_value[key] = value
 
     def validate_inputs(self, values):
         if values["-EMAIL-"] and not self.validate_email(values["-EMAIL-"]):
@@ -175,7 +304,7 @@ class PDFAutofiller:
         except ValueError:
             return False
 
-    def format_phone(self, phone):
+    def format_phone_number(self, phone):
         # Remove any non-digit characters
         phone = ''.join(filter(str.isdigit, phone))
         # Format as XXX-XXX-XXXX
@@ -335,12 +464,7 @@ In the Filled_Forms directory next to the application.""")
             'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}"
         }
 
-        # Format the date components for the fourth PDF
-        day_ordinal = self.inflect_engine.ordinal(today.day)
-        month = today.strftime("%B")
-        year = today.year
-
-        # Data dictionary for the fourth PDF
+        # Data dictionary for the fourth PDF (Pre-Arranged Funeral Service Agreement)
         data_dict4 = {
             'Purchaser': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
             'PURCHASERS NAME': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
@@ -351,13 +475,114 @@ In the Filled_Forms directory next to the application.""")
             'DATE OF BIRTH': data.get('-BIRTHDATE-', ''),
             'ADDRESS CITY PROVINCE POSTAL CODE': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
             'TELEPHONE NUMBER': data.get('-PHONE-', ''),
-            'Day': day_ordinal,
-            'Month': month,
-            'Year': str(year),
+            'Day': self.inflect_engine.ordinal(today.day),
+            'Month': today.strftime("%B"),
+            'Year': str(today.year),
+            'SIN': data.get('SIN', ''),
+            # New fields from the package layout
+            'A1': data.get('A1', ''),
+            'A2A': data.get('A2A', ''),
+            'Pallbearers': data.get('Pallbearers', ''),
+            'A2B': data.get('A2B', ''),
+            'Alternate Day Interment 1': data.get('Alternate Day Interment 1', ''),
+            'A2C': data.get('A2C', ''),
+            'Alternate Day Interment 2': data.get('Alternate Day Interment 2', ''),
+            'A2D': data.get('A2D', ''),
+            'A3': data.get('A3', ''),
+            'A4A': data.get('A4A', ''),
+            'A4B': data.get('A4B', ''),
+            'A4C': data.get('A4C', ''),
+            'A5A': data.get('A5A', ''),
+            'A5B': data.get('A5B', ''),
+            'Pacemaker Removal': data.get('Pacemaker Removal', ''),
+            'A5C': data.get('A5C', ''),
+            'Autopsy Care': data.get('Autopsy Care', ''),
+            'A5D': data.get('A5D', ''),
+            'Evening Prayers or Visitation': data.get('Evening Prayers or Visitation', ''),
+            'A6': data.get('A6', ''),
+            'Weekend or Statutory Holiday': data.get('Weekend or Statutory Holiday', ''),
+            'A7': data.get('A7', ''),
+            'Reception Facilities': data.get('Reception Facilities', ''),
+            'A8': data.get('A8', ''),
+            'Delivery of Cremated Remains': data.get('Delivery of Cremated Remains', ''),
+            'A9A': data.get('A9A', ''),
+            'Transfer to Crematorium or Airport': data.get('Transfer to Crematorium or Airport', ''),
+            'A9B': data.get('A9B', ''),
+            'Lead Vehicle': data.get('Lead Vehicle', ''),
+            'A9C': data.get('A9C', ''),
+            'Service Vehicle': data.get('Service Vehicle', ''),
+            'A9D': data.get('A9D', ''),
+            'Funeral Coach': data.get('Funeral Coach', ''),
+            'A9E': data.get('A9E', ''),
+            'Limousine': data.get('Limousine', ''),
+            'A9F': data.get('A9F', ''),
+            'Additional Limousines': data.get('Additional Limousines', ''),
+            'A9G': data.get('A9G', ''),
+            'Flower Van': data.get('Flower Van', ''),
+            'A9H': data.get('A9H', ''),
+            'Total A': data.get('Total A', ''),
+            'Casket': data.get('Casket', ''),
+            'B1': data.get('B1', ''),
+            'Urn': data.get('Urn', ''),
+            'B2': data.get('B2', ''),
+            'Keepsake': data.get('Keepsake', ''),
+            'B3': data.get('B3', ''),
+            'Traditional Mourning Items': data.get('Traditional Mourning Items', ''),
+            'B4': data.get('B4', ''),
+            'Memorial Stationary': data.get('Memorial Stationary', ''),
+            'B5': data.get('B5', ''),
+            'Funeral Register 1': data.get('Funeral Register 1', ''),
+            'B6': data.get('B6', ''),
+            'Funeral Register 2': data.get('Funeral Register 2', ''),
+            'B7': data.get('B7', ''),
+            'Total B': data.get('Total B', ''),
+            'Cemetery': data.get('Cemetery', ''),
+            'C1': data.get('C1', ''),
+            'Crematorium': data.get('Crematorium', ''),
+            'C2': data.get('C2', ''),
+            'Obituary Notices': data.get('Obituary Notices', ''),
+            'C3': data.get('C3', ''),
+            'Flowers': data.get('Flowers', ''),
+            'C4': data.get('C4', ''),
+            'CPBC Administration Fee': data.get('CPBC Administration Fee', ''),
+            'C5': data.get('C5', ''),
+            'Hostess': data.get('Hostess', ''),
+            'C6': data.get('C6', ''),
+            'Markers': data.get('Markers', ''),
+            'C7': data.get('C7', ''),
+            'Catering 1': data.get('Catering 1', ''),
+            'C8': data.get('C8', ''),
+            'Catering 2': data.get('Catering 2', ''),
+            'C9': data.get('C9', ''),
+            'Catering 3': data.get('Catering 3', ''),
+            'C10': data.get('C10', ''),
+            'Total C': data.get('Total C', ''),
+            'Clergy Honorarium': data.get('Clergy Honorarium', ''),
+            'D1': data.get('D1', ''),
+            'Church Honorarium': data.get('Church Honorarium', ''),
+            'D2': data.get('D2', ''),
+            'Altar Servers': data.get('Altar Servers', ''),
+            'D3': data.get('D3', ''),
+            'Organist': data.get('Organist', ''),
+            'D4': data.get('D4', ''),
+            'Soloist': data.get('Soloist', ''),
+            'D5': data.get('D5', ''),
+            'Harpist': data.get('Harpist', ''),
+            'D6': data.get('D6', ''),
+            'Death Certificates': data.get('Death Certificates', ''),
+            'D7': data.get('D7', ''),
+            'Other': data.get('Other', ''),
+            'D8': data.get('D8', ''),
+            'Total D': data.get('Total D', ''),
+            'Total \\(ABC\\)': data.get('Total \\(ABC\\)', ''),
+            'Discount': data.get('Discount', ''),
+            'GST': data.get('GST', ''),
+            'PST': data.get('PST', ''),
+            'Total D_2': data.get('Total D_2', ''),
+            'Grand Total': data.get('Grand Total', '')
         }
 
         return {1: data_dict1, 2: data_dict2, 3: data_dict3, 4: data_dict4}
-
 
 if __name__ == "__main__":
     autofiller = PDFAutofiller()
