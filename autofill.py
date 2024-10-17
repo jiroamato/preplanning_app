@@ -36,18 +36,8 @@ class PDFTypes:
 
 class PDFAutofiller:
     def __init__(self):
-        self.setup_logging()
         self.base_path = self.get_base_path()
-
-        try:
-            import inflect
-            self.inflect_engine = inflect.engine()
-        except ImportError:
-            logging.error(
-                "The 'inflect' library is not installed. Please install it using 'pip install inflect'.")
-            sg.popup_error(
-                "The 'inflect' library is not installed. Please install it using 'pip install inflect'.")
-            return
+        self.setup_logging()
         
         self.location_data = {
             "Kearney Funeral Services (KFS)": {'ESTABLISHMENT_NAME': 'Kearney Funeral Services (KFS)', 'ESTABLISHMENT_EMAIL': 'Vancouver.Chapel@KearneyFS.com', 'ESTABLISHMENT_PHONE': '604-736-2668', 'ESTABLISHMENT_ADDRESS': '450 W 2nd Ave', 'ESTABLISHMENT_CITY': 'Vancouver', 'ESTABLISHMENT_PROVINCE': 'BC', 'ESTABLISHMENT_POSTAL_CODE': 'V5Y 1E2'},
@@ -350,7 +340,7 @@ class PDFAutofiller:
                 [sg.Text("D. LPR:", size=(TEXT_WIDTH, 1))],
                 [sg.Text("Total (A+B+C+D):", size=(TEXT_WIDTH, 1))],
             ]), sg.Column([
-                [sg.Push(), sg.Combo(["1-year", "3-year", "5-year", "10-year", "15-year", "20-year"], 
+                [sg.Push(), sg.Combo(["3-year", "5-year", "10-year", "15-year", "20-year"], 
                           key="Payment Term", size=(DOLLAR_WIDTH, 1), enable_events=True)],
                 [sg.Push(), sg.Text("$"), sg.Input(key="4A Single Pay", size=(DOLLAR_WIDTH, 1), enable_events=True)],
                 [sg.Push(), sg.Text("$"), sg.Input(key="4B Time Pay", size=(DOLLAR_WIDTH, 1), enable_events=True)],
@@ -384,7 +374,7 @@ class PDFAutofiller:
                 [sg.HorizontalSeparator()],
                 [sg.Frame("Packages", [
                     [sg.Text("Select Package:"), sg.Combo(list(self.packages.keys()), key="-PACKAGE-", enable_events=True)],
-                    [sg.Text("Type of Service:"), sg.Input(key="Type of Service", readonly=True)],
+                    [sg.Text("Type of Service:"), sg.Input(key="Type of Service")],
                     [sg.Column(section_a_layout, scrollable=True, vertical_scroll_only=True, expand_x=True, expand_y=True),
                     sg.VerticalSeparator(),
                     sg.Column([
@@ -431,6 +421,13 @@ class PDFAutofiller:
 
         self.last_value = {key: '' for key in self.dollar_input_keys}
         locale.setlocale(locale.LC_ALL, '')  # Set the locale to the user's default
+        
+    def ordinal(self, n):
+        if 10 <= n % 100 <= 20:
+            suffix = 'th'
+        else:
+            suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')
+        return f"{n}{suffix}"
 
     def apply_package(self, package_name):
         try:
@@ -516,20 +513,8 @@ class PDFAutofiller:
                     self.apply_package(values["-PACKAGE-"])
                 elif event == "-BIRTHDATE-":
                     self.update_age(values["-BIRTHDATE-"])
-                elif event == "-CALCULATE_GST-":
-                    self.calculate_gst(values)
-                elif event == "-CALCULATE_PST-":
-                    self.calculate_pst(values)
                 elif event in self.dollar_input_keys:
                     self.format_dollar_field(event, values[event])
-                elif event == "-CALCULATE_TOTAL-":
-                    self.calculate_total(values)
-                elif event == "-CALCULATE_GRAND_TOTAL-":
-                    self.calculate_grand_total(values)
-                elif event == "-CALCULATE_PREPLANNED-":
-                    self.calculate_preplanned(values)
-                elif event == "-CALCULATE_PAYMENT-":
-                    self.calculate_payment(values)
                 elif event == "-CALCULATE_MONTHLY_PAYMENT-":
                     self.calculate_monthly_payment(values)
                 elif event == "SIN":
@@ -586,219 +571,100 @@ class PDFAutofiller:
         except Exception as e:
             logging.error(f"Error refreshing form: {str(e)}")
             sg.popup_error(f"An error occurred while refreshing the form: {str(e)}")
-        
-    def calculate_total(self, values):
-        sections = {
-            'A': ['A1', 'A2A', 'A2B', 'A2C', 'A2D', 'A3', 'A4A', 'A4B', 'A4C',
-                  'A5A', 'A5B', 'A5C', 'A5D', 'A6', 'A7', 'A8', 'A9A', 'A9B',
-                  'A9C', 'A9D', 'A9E', 'A9F', 'A9G', 'A9H'],
-            'B': ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
-            'C': ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
-            'D': ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8']
-        }
-
-        totals = {}
-
-        for section, fields in sections.items():
-            total = 0
-            for field in fields:
-                if field in values:
-                    value = values[field]
-                    if isinstance(value, sg.Input):
-                        value = value.get()
-                    if value:
-                        try:
-                            total += float(value.replace('$', '').replace(',', ''))
-                        except ValueError:
-                            logging.warning(f"Invalid value for field {field}: {value}")
-            totals[section] = total
-            formatted_total = locale.format_string('%.2f', total, grouping=True)
-            self.window[f"Total {section}"].update(formatted_total)
-
-            # Update Total D_2 as well if it's section D
-            if section == 'D':
-                self.window["Total D_2"].update(formatted_total)
-
-        # Log the calculation
-        logging.info(f"Totals calculated: A={totals['A']:.2f}, B={totals['B']:.2f}, C={totals['C']:.2f}, D={totals['D']:.2f}")
-
-        # Calculate and update Total (ABC)
-        total_abc = totals['A'] + totals['B'] + totals['C']
-        formatted_total_abc = locale.format_string('%.2f', total_abc, grouping=True)
-        self.window["Total \\(ABC\\)"].update(formatted_total_abc)
-        
-    def calculate_grand_total(self, values):
-        try:
-            total_abc = float(values["Total \\(ABC\\)"].replace(',', '') or 0)
-            discount = float(values["Discount"].replace(',', '') or 0)
-            gst = float(values["GST"].replace(',', '') or 0)
-            pst = float(values["PST"].replace(',', '') or 0)
-            total_d = float(values["Total D_2"].replace(',', '') or 0)
-
-            grand_total = total_abc - discount + gst + pst + total_d
-
-            formatted_grand_total = locale.format_string('%.2f', grand_total, grouping=True)
-            self.window["Grand Total"].update(formatted_grand_total)
             
-            # Update the "3A Goods and Services" field with the same value
-            self.window["3A Goods and Services"].update(formatted_grand_total)
-
-            logging.info(f"Grand Total calculated: {formatted_grand_total}")
-        except ValueError as e:
-            logging.error(f"Error calculating Grand Total: {str(e)}")
-            sg.popup_error("Error calculating Grand Total. Please ensure all values are numeric.")
-            
-    def calculate_preplanned(self, values):
+    def calculate_monthly_payment(self, values):
         try:
-            goods_and_services = float(values["3A Goods and Services"].replace(',', '') or 0)
-            monument_marker = float(values["3B MonumentMarker"].replace(',', '') or 0)
-            other_expenses = float(values["3C Other Expenses"].replace(',', '') or 0)
-            final_documents = float(values["3D Final Documents Service"].replace(',', '') or 0)
-            journey_home = float(values["3E Journey Home"].replace(',', '') or 0)
+            # Step 1: Calculate GST and PST
+            total_gst = 0
+            total_pst = 0
+            for field in self.gst_fields:
+                try:
+                    value = float(values[field].replace('$', '').replace(',', ''))
+                    total_gst += value * 0.05
+                    if field in self.pst_fields:
+                        total_pst += value * 0.07
+                except ValueError:
+                    continue
 
+            # Step 2: Calculate Totals
+            sections = {
+                'A': ['A1', 'A2A', 'A2B', 'A2C', 'A2D', 'A3', 'A4A', 'A4B', 'A4C',
+                    'A5A', 'A5B', 'A5C', 'A5D', 'A6', 'A7', 'A8', 'A9A', 'A9B',
+                    'A9C', 'A9D', 'A9E', 'A9F', 'A9G', 'A9H'],
+                'B': ['B1', 'B2', 'B3', 'B4', 'B5', 'B6', 'B7'],
+                'C': ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10'],
+                'D': ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8']
+            }
+
+            totals = {section: sum(float(values[field].replace('$', '').replace(',', '') or 0) for field in fields)
+                    for section, fields in sections.items()}
+
+            # Copy Total D to Total D_2
+            self.window["Total D_2"].update(locale.format_string('%.2f', totals['D'], grouping=True))
+
+            # Step 3: Calculate Grand Total
+            total_abc = totals['A'] + totals['B'] + totals['C']
+            discount = float(values["Discount"].replace('$', '').replace(',', '') or 0)
+            grand_total = total_abc - discount + total_gst + total_pst + totals['D']
+
+            # Step 4: Calculate Preplanned Amount
+            goods_and_services = grand_total
+            monument_marker = float(values["3B MonumentMarker"].replace('$', '').replace(',', '') or 0)
+            other_expenses = float(values["3C Other Expenses"].replace('$', '').replace(',', '') or 0)
+            final_documents = float(values["3D Final Documents Service"].replace('$', '').replace(',', '') or 0)
+            journey_home = float(values["3E Journey Home"].replace('$', '').replace(',', '') or 0)
             total_preplanned = goods_and_services + monument_marker + other_expenses + final_documents + journey_home
 
-            formatted_total = locale.format_string('%.2f', total_preplanned, grouping=True)
-            self.window["Total 3"].update(formatted_total)
-
-            logging.info(f"Total Preplanned Amount calculated: {formatted_total}")
-        except ValueError as e:
-            logging.error(f"Error calculating Total Preplanned Amount: {str(e)}")
-            sg.popup_error("Error calculating Total Preplanned Amount. Please ensure all values are numeric.")
-        
-    def calculate_gst(self, values):
-        total_gst = 0
-        for field in self.gst_fields:
-            try:
-                value = float(values[field].replace('$', '').replace(',', ''))
-                total_gst += value * 0.05
-            except ValueError:
-                # If the field is empty or not a valid number, skip it
-                continue
-
-        # Format the GST value with comma separators and two decimal places, but without currency symbol
-        formatted_gst = f"{total_gst:,.2f}"
-        self.window["GST"].update(formatted_gst)
-
-        # Log the calculation
-        logging.info(f"GST calculated: {formatted_gst}")
-
-    def calculate_pst(self, values):
-        total_pst = 0
-        for field in self.pst_fields:
-            try:
-                value = float(values[field].replace('$', '').replace(',', ''))
-                total_pst += value * 0.07
-            except ValueError:
-                # If the field is empty or not a valid number, skip it
-                continue
-
-        # Format the PST value with comma separators and two decimal places, but without currency symbol
-        formatted_pst = f"{total_pst:,.2f}"
-        self.window["PST"].update(formatted_pst)
-
-        # Log the calculation
-        logging.info(f"PST calculated: {formatted_pst}")
-        
-    def calculate_payment(self, values):
-        try:
-            total_3_abcde = values["Total 3"].replace(',', '').strip()
-            age = values["-AGE-"].strip()
+            # Step 5: Calculate Payment
+            age = int(values["-AGE-"].strip())
             term = values["Payment Term"]
 
-            logging.info(f"Payment calculation inputs: Total 3 = {total_3_abcde}, Age = {age}, Term = {term}")
-
-            if not total_3_abcde or not age or not term:
-                missing_fields = []
-                if not total_3_abcde: missing_fields.append("Total 3")
-                if not age: missing_fields.append("Age")
-                if not term: missing_fields.append("Payment Term")
-                raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
-
-            total_3_abcde = float(total_3_abcde)
-            age = int(age)
-
             # Determine the age group
-            if age <= 54:
-                age_group = '0_to_54'
-            elif 55 <= age <= 59:
-                age_group = '55_to_59'
-            elif 60 <= age <= 64:
-                age_group = '60_to_64'
-            elif age == 65:
-                age_group = '65'
-            elif 66 <= age <= 69:
-                age_group = '66_to_69'
-            elif age == 70:
-                age_group = '70'
-            elif 71 <= age <= 74:
-                age_group = '71_to_74'
-            elif age == 75:
-                age_group = '75'
-            elif 76 <= age <= 79:
-                age_group = '76_to_79'
-            elif age == 80:
-                age_group = '80'
-            elif 81 <= age <= 82:
-                age_group = '81_to_82'
-            else:
+            age_groups = [
+                ('0_to_54', lambda x: x <= 54),
+                ('55_to_59', lambda x: 55 <= x <= 59),
+                ('60_to_64', lambda x: 60 <= x <= 64),
+                ('65', lambda x: x == 65),
+                ('66_to_69', lambda x: 66 <= x <= 69),
+                ('70', lambda x: x == 70),
+                ('71_to_74', lambda x: 71 <= x <= 74),
+                ('75', lambda x: x == 75),
+                ('76_to_79', lambda x: 76 <= x <= 79),
+                ('80', lambda x: x == 80),
+                ('81_to_82', lambda x: 81 <= x <= 82)
+            ]
+            age_group = next((group for group, condition in age_groups if condition(age)), None)
+
+            if age_group is None:
                 raise ValueError(f"Age {age} is out of supported range")
 
-            # Get the factor
             factor = self.payment_factors[age_group][term]
             if factor is None:
                 raise ValueError(f"No factor available for age {age} and term {term}")
 
-            # Calculate 4B Time Pay
-            time_pay = total_3_abcde * factor
-            formatted_time_pay = locale.format_string('%.2f', time_pay, grouping=True)
-            self.window["4B Time Pay"].update(formatted_time_pay)
+            time_pay = total_preplanned * factor
 
-            # Calculate Total 4 (ABCD) using the newly calculated time_pay value
+            # Update all calculated values
+            self.window["GST"].update(locale.format_string('%.2f', total_gst, grouping=True))
+            self.window["PST"].update(locale.format_string('%.2f', total_pst, grouping=True))
+            for section, total in totals.items():
+                self.window[f"Total {section}"].update(locale.format_string('%.2f', total, grouping=True))
+            self.window["Total \\(ABC\\)"].update(locale.format_string('%.2f', total_abc, grouping=True))
+            self.window["Grand Total"].update(locale.format_string('%.2f', grand_total, grouping=True))
+            self.window["3A Goods and Services"].update(locale.format_string('%.2f', goods_and_services, grouping=True))
+            self.window["Total 3"].update(locale.format_string('%.2f', total_preplanned, grouping=True))
+            self.window["4B Time Pay"].update(locale.format_string('%.2f', time_pay, grouping=True))
+
+            # Calculate and update Total 4 (ABCD)
             total_4_abcd = sum([
-                float(values["4A Single Pay"].replace(',', '') or 0),
-                time_pay,  # Use the newly calculated time_pay value
-                float(values["4C Single Pay Journey Home"].replace(',', '') or 0),
-                float(values["4D LPR"].replace(',', '') or 0)
+                float(values["4A Single Pay"].replace('$', '').replace(',', '') or 0),
+                time_pay,
+                float(values["4C Single Pay Journey Home"].replace('$', '').replace(',', '') or 0),
+                float(values["4D LPR"].replace('$', '').replace(',', '') or 0)
             ])
-            formatted_total_4_abcd = locale.format_string('%.2f', total_4_abcd, grouping=True)
-            self.window["Total 4 \\(ABCD\\)"].update(formatted_total_4_abcd)
+            self.window["Total 4 \\(ABCD\\)"].update(locale.format_string('%.2f', total_4_abcd, grouping=True))
 
-            logging.info(f"Payment calculated: 4B Time Pay = {formatted_time_pay}, Total 4 (ABCD) = {formatted_total_4_abcd}")
-        
-        except ValueError as e:
-            logging.error(f"Error calculating payment: {str(e)}")
-            sg.popup_error(f"Error calculating payment: {str(e)}")
-        except Exception as e:
-            logging.error(f"Unexpected error calculating payment: {str(e)}")
-            sg.popup_error(f"An unexpected error occurred while calculating payment: {str(e)}")
-            
-    def calculate_monthly_payment(self, values):
-        try:
-            # Step 1: Calculate GST
-            self.calculate_gst(values)
-            
-            # Step 2: Calculate PST
-            self.calculate_pst(values)
-            
-            # Step 3: Calculate Total
-            self.calculate_total(values)
-            
-            # Step 4: Calculate Grand Total
-            self.calculate_grand_total(values)
-            
-            # Step 5: Calculate Preplanned
-            self.calculate_preplanned(values)
-            
-            # Update the values dictionary with the newly calculated values
-            values = self.window.read(timeout=0)[1]
-            
-            # Step 6: Calculate Payment
-            self.calculate_payment(values)
-            
-            # After all calculations, update the window to reflect new values
             self.window.refresh()
-            
             logging.info("Monthly payment calculation completed successfully")
             sg.popup("Monthly payment calculation completed successfully")
         except Exception as e:
@@ -935,11 +801,11 @@ class PDFAutofiller:
             sg.popup_error(f"One or more PDF files not found. Please check the Forms directory.\nLooking in: {self.base_path}")
             return
 
-        # Create 'Filled_Forms' folder
+        # Create 'Filled_Forms' folder in the same directory as the executable
         if getattr(sys, 'frozen', False):
-            output_dir = Path(sys.executable).parent / "Filled_Forms"
+            output_dir = Path(sys.executable).parent / "Filled Forms"
         else:
-            output_dir = Path(os.getcwd()) / "Filled_Forms"
+            output_dir = Path(os.getcwd()) / "Filled Forms"
         output_dir.mkdir(exist_ok=True)
 
         output_filenames = {
@@ -998,6 +864,7 @@ In the Filled_Forms directory next to the application.""")
 
         # Data dictionary for the first PDF
         data_dict1 = {
+            'I understand that this is an enrollment into a group policy in order to provide funding for funeral expenses': 'On',
             'Establishment Name': ESTABLISHMENT_NAME,
             'Phone': ESTABLISHMENT_PHONE,
             'Email': ESTABLISHMENT_EMAIL,
@@ -1049,6 +916,12 @@ In the Filled_Forms directory next to the application.""")
             'Phone_5': REPRESENTATIVE_PHONE,
             'Email_5': REPRESENTATIVE_EMAIL,
             'Date ddmmyy_3': formatted_date,
+            'Payment \\(PAC\\)': 'On',
+            'I hereby assign as its interest may lie the death benefit of the certificate applied for and to be issued to the funeral Establishment indicated above to provide funeral goods and': 'On',
+            'I request that no new product be offered to me by TruStage Life of Canada or their affiliates or partners': 'On',
+            'I also hereby assign the death benefit of the certificate to the funeral Establishment to provide certain cemetery goods and services and elect my certificate to be an EFA': 'On',
+            'Coverage Type: Protector Plus not available on FEGA IP': 'On'
+            
         }
         
         selected_term = data.get('Payment Term', '')
@@ -1099,7 +972,7 @@ In the Filled_Forms directory next to the application.""")
             'Name': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
             'Phone': data.get('-PHONE-', ''),
             'Email': data.get('-EMAIL-', ''),
-            'Type of Service': self.selected_package,
+            'Type of Service': data.get('Type of Service', ''),
             'Service to be Held at': ESTABLISHMENT_NAME,
             'Address': f"{ESTABLISHMENT_ADDRESS}, {ESTABLISHMENT_CITY}, {ESTABLISHMENT_PROVINCE}, {ESTABLISHMENT_POSTAL_CODE}",
             'Death Certificates': data.get('Death Certificates', '')[:1] if data.get('Death Certificates') else '',
@@ -1132,13 +1005,13 @@ In the Filled_Forms directory next to the application.""")
             'PURCHASERS NAME': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
             'Phone Number': data.get('-PHONE-', ''),
             'Address': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
-            'Type of Service': self.selected_package,
+            'Type of Service': data.get('Type of Service', ''),
             'FUNERAL HOME REPRESENTATIVE NAME': REPRESENTATIVE_NAME,
             'BENEFICIARY': f"{data.get('-FIRST-', '')} {data.get('-MIDDLE-', '')} {data.get('-LAST-', '')}",
             'DATE OF BIRTH': data.get('-BIRTHDATE-', ''),
             'ADDRESS CITY PROVINCE POSTAL CODE': f"{data.get('-ADDRESS-', '')}, {data.get('-CITY-', '')}, {data.get('-PROVINCE-', '')}, {data.get('-POSTAL-', '')}",
             'TELEPHONE NUMBER': data.get('-PHONE-', ''),
-            'Day': self.inflect_engine.ordinal(today.day),
+            'Day': self.ordinal(today.day),
             'Month': today.strftime("%B"),
             'Year': str(today.year),
             'SIN': data.get('SIN', ''),
