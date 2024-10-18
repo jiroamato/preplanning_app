@@ -2,3 +2,9 @@
 *.pdf
 *.exe
 
+# Ignore a directory called "build"
+build/
+
+# Ignore a directory called "dist"
+dist/
+

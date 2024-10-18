@@ -283,7 +283,8 @@ class PDFAutofiller:
                 [sg.Push(), sg.Input(key="Organist", size=(INPUT_WIDTH, 1)), sg.Text("$"), sg.Input(key="D4", size=(DOLLAR_WIDTH, 1), enable_events=True)],
                 [sg.Push(), sg.Input(key="Soloist", size=(INPUT_WIDTH, 1)), sg.Text("$"), sg.Input(key="D5", size=(DOLLAR_WIDTH, 1), enable_events=True)],
                 [sg.Push(), sg.Input(key="Harpist", size=(INPUT_WIDTH, 1)), sg.Text("$"), sg.Input(key="D6", size=(DOLLAR_WIDTH, 1), enable_events=True)],
-                [sg.Push(), sg.Input(key="Death Certificates", size=(INPUT_WIDTH, 1)), sg.Text("$"), sg.Input(key="D7", size=(DOLLAR_WIDTH, 1), enable_events=True)],
+                [sg.Push(),sg.Text("Quantity:"), sg.Input(key="Death_Certificates_Quantity", size=(5, 1), enable_events=True),
+                 sg.Text("x $27.00 ="), sg.Push(), sg.Text("$"), sg.Input(key="D7", size=(DOLLAR_WIDTH, 1), readonly=True)],
                 [sg.Push(), sg.Input(key="Other", size=(INPUT_WIDTH, 1)), sg.Text("$"), sg.Input(key="D8", size=(DOLLAR_WIDTH, 1), enable_events=True)],
             ])],
             [sg.Text("TOTAL D:", font=("Helvetica", 10, "bold"), size=(TEXT_WIDTH, 1)), sg.Push(), sg.Text("$"), sg.Input(key="Total D", size=(DOLLAR_WIDTH, 1), enable_events=True)]
@@ -527,6 +528,8 @@ class PDFAutofiller:
                     self.toggle_beneficiary_address_fields(values["-SAME_ADDRESS-"])
                 elif event == "Payment Term":
                     logging.info(f"Selected payment term: {values['Payment Term']}")
+                elif event == "Death_Certificates_Quantity":
+                    self.calculate_death_certificates(values["Death_Certificates_Quantity"])
                 elif event == "Autofill PDFs":
                     self.autofill_pdfs(values)
             except Exception as e:
@@ -571,6 +574,15 @@ class PDFAutofiller:
         except Exception as e:
             logging.error(f"Error refreshing form: {str(e)}")
             sg.popup_error(f"An error occurred while refreshing the form: {str(e)}")
+            
+    def calculate_death_certificates(self, quantity):
+        try:
+            qty = int(quantity)
+            total = qty * 27.00
+            self.window["D7"].update(f"{total:.2f}")
+        except ValueError:
+            self.window["D7"].update("")
+
             
     def calculate_monthly_payment(self, values):
         try:
@@ -956,7 +968,7 @@ In the Filled_Forms directory next to the application.""")
             'Date of Birth': data.get('-BIRTHDATE-', ''),
             'Occupation': data.get('-OCCUPATION-', ''),
             'SIN': data.get('SIN', ''),
-            'Death Certificate #': data.get('Death Certificates', '')[:1] if data.get('Death Certificates') else '',
+            'Death Certificate #': data.get('Death_Certificates_Quantity', ''),
             'Kearney ColumbiaBowell Chapel': '',
             'Kearney Vancouver Chapel': '',
             'Kearney Cloverdale South Surrey': '',
@@ -975,7 +987,7 @@ In the Filled_Forms directory next to the application.""")
             'Type of Service': data.get('Type of Service', ''),
             'Service to be Held at': ESTABLISHMENT_NAME,
             'Address': f"{ESTABLISHMENT_ADDRESS}, {ESTABLISHMENT_CITY}, {ESTABLISHMENT_PROVINCE}, {ESTABLISHMENT_POSTAL_CODE}",
-            'Death Certificates': data.get('Death Certificates', '')[:1] if data.get('Death Certificates') else '',
+            'Death Certificates': data.get('Death_Certificates_Quantity', ''),
             'Casket': '',
             'Urn': '',
             'Kearney ColumbiaBowell Chapel': '',
@@ -1105,7 +1117,7 @@ In the Filled_Forms directory next to the application.""")
             'D5': data.get('D5', ''),
             'Harpist': data.get('Harpist', ''),
             'D6': data.get('D6', ''),
-            'Death Certificates': data.get('Death Certificates', ''),
+            'Death Certificates': f"{data.get('Death_Certificates_Quantity', '')} x $27.00",
             'D7': data.get('D7', ''),
             'Other': data.get('Other', ''),
             'D8': data.get('D8', ''),
